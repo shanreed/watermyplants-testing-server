@@ -1,52 +1,73 @@
-const express = require('express')
-const server = express()
-//importing middleware
-const cors = require('cors')
-const helmet = require('helmet')
-const morgan = require('morgan')
-const cookie_parser = require('cookie-parser')
-
-const db = require("../data/db-config")
-const authenticate = require('../middleware/auth-middleware')
-
-//ENV
-const dotenv = require("dotenv")
-dotenv.config()
+const express = require('express');
+const helmet = require('helmet');
+// const cors = require('cors');
+// const shortid = require('shortid')
+// var morgan = require('morgan')
 
 
-//middleware
-server.use(express.json())
-server.use(cookie_parser())
-server.use(helmet())
-server.use(cors())
-server.use(morgan())
+// const hubsRouter = require('../hubs/hubs-router.js');
+// const messagesRouter = require('../messages/messages-router.js');
+// const authRouter = require("../auth/auth-router.js");
+// const session = require('express-session');
+// const KnexSessionStore = require('connect-session-knex')(session);
 
-//import server routes
-const authRouter = require("../auth/auth-router")
-const userRouter = require("../users/users-router")
-const plantRouter = require("../plants/plants-router")
+const server = express();
 
-server.use("/api/auth", authRouter)
-server.use("/api/users", authenticate, userRouter)
-server.use("/api/plants", plantRouter)
 
+
+
+//Builtin
+server.use(express.json());
+
+
+
+//Third Party Middleware
+// server.use(cors())
+server.use(helmet());
+// server.use(morgan('dev'));
+
+//Custom Middleware
+server.use(addName);
+// server.use(lockout);
+// const sessionConfig = {
+//   name: 'monkey',
+//   secret: 'keep it secret, keep it safe!',// used to make sure the cookie is valid
+//   cookie: {
+//     maxAge: 1000 * 30,// 30 seconds
+//     secure: false,   // can i send cookie over a http connection, must be set to true during production, can be dynamically changed
+//     httpOnly: true,  // when true, js can't get to the cookie
+//   },
+//   // we should only save sessions when user allows it
+//   resave: false,// recreate session even if it has not change
+//   saveUninitialized: false, //set cookie automatically, only be true if user has opted in, can be dynamically changed
+//   store: new KnexSessionStore({
+//     knex: require('../data/dbConfig.js'), // configured instance of knex
+//     tablename: 'sessions', // table that will store sessions inside the db, name it anything you want
+//     sidfieldname: 'sid', // column that will hold the session id, name it anything you want
+//     createtable: true, // if the table does not exist, it will create it automatically
+//     clearInterval: 1000 * 60 * 60, // time it takes to check for old sessions and remove them from the database to keep it clean and performant
+//   }),
+// }
+
+
+// server.use(session(sessionConfig));
+
+// server.use("/auth", authRouter);
+// server.use('/api/hubs', hubsRouter); 
+// server.use('/api/hubs/messages', messagesRouter); 
 
 server.get('/', (req, res) => {
-    res.json({
-        message: "Water My Plants App"
-    })
+    const nameInsert = (req.name) ? `${req.name}` : '';
+    res.json({hello: `HELLO THERE ${nameInsert}`})
 })
 
-server.use((err, req, res, next) => {
-    const statusCode = err.statusCode || 500
-    if (err) {
-        return res.status(statusCode).json({
-            message: err.message || "Something went wrong"
-        })
-    }
-    next()
-})
+function addName(req, res, next) {
+    req.name = req.name || "Shannon";
+    next();
+}
 
+// function lockout(req, res, next) {
+//     res.status(403).json({message: 'api lockout'})
+// }
 
-
-module.exports = server
+module.exports = server;

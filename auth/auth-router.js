@@ -1,67 +1,70 @@
+const bc = require('bcryptjs')
 const router = require("express").Router()
-const users_model = require("../users/users-model")
-const bcrypt = require("bcryptjs")
-const jwt = require("jsonwebtoken")
-const secret = require("../config/secrets")
+const Users = require("../hubs/hubs-model.js")
 
-function generateToken(user) {
-    const payload = {
-        subject: user.id,
-        username: user.username
-    }
-    const options = {
-        expiresIn: "1d"
-    }
+router.post("/register", (req, res) => {
+  console.log('register endpoint')
+  // 1- pull credentials from body
+  const { hubname, email, password } = req.body
+  // 2- make a hash using bcrypt
+  //        - import the lib
+  //        - use the lib
+  //        - hashSync takes raw password and the number of rounds
+  const hashedPassword = bc.hashSync(password, 10) // 2 ^ 10
+  // 3- we will save { username, password (hashed) } into db
+  Users.add({
+    hubname,
+    email,
+    password: hashedPassword,
+  })
+    .then(data => {
+      console.log(data)
+      res.status(200).json(data)
+    })
+    .catch(err => {
+      console.log(err)
+      res.status(500).json({ message: `Something went really poorly` })
+    })
+  // 4- we can json back to the client whatever, res.end, res.send, res.json
+})
 
-    return jwt.sign(payload, secret.jwtSecret, options)
-}
-
-router.post("/register", async (req, res, next) => {
-    const { username, password, phone_number } = req.body
-    console.log(req.body)
-    const hash = bcrypt.hashSync(password, 10)
-    console.log(hash)
-    users_model.add({
-    username,
-    phone_number,
-    password: hash,
-  })
-  .then(data => {
-    console.log(data)
-    res.status(200).json({ 
-      username,
-      phone_number,
-      password: hash})
-  })
-  .catch(err => {
-    console.log("Erorr", err)
-    res.status(500).json({ message: `Something went really poorly` })
-  })
+router.post("/login", (req, res) => {
+  // 1- pull creds from requ
+  const { hubname, password } = req.body
+  // 2- check creds using bcrypc - we need the hash from the db
+  Users.findBy({ hubname }).first()
+    .then(user => {
+      if (user && bc.compareSync(password, user.password)) {
+        
+        // this means the username exists in the db AND password good
+        // now we can save a session for this particular login
+        req.session.hub = user
+        // this response is setting Set-Cookie:sessionId=blablabla
+        res.json({ message: `Welcome, ${user.hubname}! Here is a cookie` })
+      } else {
+        // this means the username does not exist
+        res.status(401).json({ message: 'Invalid credential' })
+      }
+    })
+    .catch(err => {
+      console.log(err)
+    })
+  // 3- create session by taking info to req.session
+  // THE END
 
 })
 
-
-
-router.post('/login', (req, res) => {
-  let { username, password } = req.body;
-  users_model.findBy({ username })
-    .first()
-    .then(user => {
-      if (user && bcrypt.compareSync(password, user.password)) {
-        const token = generateToken(user); // new line
-        // the server needs to return the token to the client
-        // this doesn't happen automatically like it happens with cookies
-        res.status(200).json({
-          message: `Welcome ${user.username}!, have a token...`,
-          token, // attach the token as part of the response
-        });
+router.get("/logout", (req, res) => {
+  console.log('logout endpoint')
+  if (req.session) {
+    req.session.destroy((err) => {
+      if (err) {
+        res.json({ message: 'Sorry, you can not leave' })
       } else {
-        res.status(401).json({ message: 'Invalid Credentials' });
+        res.json({ message: 'good bye' })
       }
     })
-    .catch(error => {
-      res.status(500).json(error);
-    });
-});
+  }
+})
 
 module.exports = router
